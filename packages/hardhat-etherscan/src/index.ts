@@ -21,6 +21,7 @@ import {
 } from "hardhat/utils/contract-names";
 import path from "path";
 import semver from "semver";
+import { isString } from "util";
 
 import { encodeArguments } from "./ABIEncoder";
 import { etherscanConfigExtender } from "./config";
@@ -50,6 +51,7 @@ import {
   getEtherscanEndpoints,
   retrieveContractBytecode,
 } from "./network/prober";
+import resolveEtherscanApiKey from "./resolveEtherscanApiKey";
 import {
   Bytecode,
   ContractInformation,
@@ -128,7 +130,7 @@ const verify: ActionType<VerificationArgs> = async (
     contract,
     libraries: librariesModule,
   },
-  { run }
+  { run, hardhatArguments: { network } }
 ) => {
   const constructorArguments: any[] = await run(
     TASK_VERIFY_GET_CONSTRUCTOR_ARGUMENTS,
@@ -147,6 +149,7 @@ const verify: ActionType<VerificationArgs> = async (
     constructorArguments,
     contract,
     libraries,
+    network,
   });
 };
 
@@ -156,14 +159,7 @@ const verifySubtask: ActionType<VerificationSubtaskArgs> = async (
 ) => {
   const { etherscan } = config;
 
-  if (etherscan.apiKey === undefined || etherscan.apiKey.trim() === "") {
-    throw new NomicLabsHardhatPluginError(
-      pluginName,
-      `Please provide an Etherscan API token via hardhat config.
-E.g.: { [...], etherscan: { apiKey: 'an API key' }, [...] }
-See https://etherscan.io/apis`
-    );
-  }
+  const etherscanApiKey = resolveEtherscanApiKey(etherscan, network.name);
 
   const { isAddress } = await import("@ethersproject/address");
   if (!isAddress(address)) {
@@ -296,7 +292,7 @@ Possible causes are:
     etherscanAPIEndpoints,
     contractInformation,
     address,
-    etherscan.apiKey,
+    etherscanApiKey,
     contractInformation.compilerInput,
     solcFullVersion,
     deployArgumentsEncoded
